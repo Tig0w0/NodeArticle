@@ -53,22 +53,52 @@ function Graph({articles,setArticles,setSelected,scale=1}){
  const slots=[40,200,430,670,920,1160,1390]
  const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null),dragStartRef=useRef(null)
  const [draggingId,setDraggingId]=useState(null)
- const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
- const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
- const [displayNodes,setDisplayNodes]=useState(nodes)
- useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(nodes)},[nodes])
- const onNodesChange=changes=>setDisplayNodes(prev=>applyNodeChanges(dragIdRef.current?changes.filter(c=>!(c.type==='position'&&c.id===dragIdRef.current)):changes,prev))
- const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
- const visibleEdges=useMemo(()=>draggingId?edges.filter(e=>e.source!==draggingId&&e.target!==draggingId):edges,[edges,draggingId])
- const nodeEl=id=>document.querySelector('.react-flow__node[data-id="'+id+'"]')
- const clearPreview=()=>{
-  ordered.forEach(n=>{const el=nodeEl(n.id);if(el){el.style.translate='';el.classList.remove('preview-shift')}})
-  evidence.forEach(e=>{const el=nodeEl(e.id);if(el){el.style.translate='';el.classList.remove('preview-shift')}})
-  if(ghostRef.current){ghostRef.current.style.display='none';ghostRef.current.replaceChildren()}
+
+ const evNodes=useMemo(()=>evidence.map(e=>{
+  const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y
+  const target=articles.find(n=>n.id===e.target)?.position.y||base
+  return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}
+ }),[articles])
+
+ const staticNodes=useMemo(()=>[
+  ...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),
+  ...evNodes
+ ],[ordered,evNodes])
+
+ const [displayNodes,setDisplayNodes]=useState(staticNodes)
+ useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(staticNodes)},[staticNodes])
+
+ const normalEdges=useMemo(()=>{
+  const main=ordered.slice(0,-1).map((n,i)=>({
+   id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'
+  }))
+  const refs=evidence.map((e,i)=>({
+   id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,
+   sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',
+   type:'smoothstep',className:'refEdge',
+   label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'
+  }))
+  return [...main,...refs]
+ },[ordered])
+
+ const dragEdges=useMemo(()=>{
+  if(!draggingId)return normalEdges
+  const spine=ordered.filter(n=>n.id!==draggingId)
+  const main=spine.slice(0,-1).map((n,i)=>({
+   id:'drag-m'+i,source:n.id,target:spine[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'
+  }))
+  const refs=normalEdges.filter(e=>e.className==='refEdge'&&e.source!==draggingId&&e.target!==draggingId)
+  return [...main,...refs]
+ },[draggingId,ordered,normalEdges])
+
+ const onNodesChange=changes=>{
+  if(!dragIdRef.current){setDisplayNodes(prev=>applyNodeChanges(changes,prev));return}
+  setDisplayNodes(prev=>applyNodeChanges(changes.filter(c=>!(c.type==='position'&&c.id===dragIdRef.current)),prev))
  }
+
  const buildGhost=node=>{
   if(!ghostRef.current)return
-  const src=nodeEl(node.id)?.querySelector('.articleNode')
+  const src=document.querySelector('.react-flow__node[data-id="'+node.id+'"] .articleNode')
   if(!src)return
   const clone=src.cloneNode(true)
   clone.classList.remove('selected')
@@ -77,61 +107,106 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   ghostRef.current.replaceChildren(clone)
   ghostRef.current.style.display='block'
  }
- const preview=(node,forceGhost=false)=>{
-  if(node.type!=='article'||node.data.role==='TITLE'||!ghostRef.current||!flowRef.current)return
-  if(forceGhost||dragIdRef.current!==node.id){dragIdRef.current=node.id;buildGhost(node)}
-  const title=ordered.find(n=>n.data.role==='TITLE')
-  const dragged=ordered.find(n=>n.id===node.id)
-  const others=ordered.filter(n=>n.id!==node.id&&n.data.role!=='TITLE')
+
+ const getInsertIndex=y=>{
   const targetSlots=slots.slice(1,ordered.length)
   let idx=0,best=Infinity
-  targetSlots.forEach((y,i)=>{const d=Math.abs(node.position.y-y);if(d<best){best=d;idx=i}})
-  idx=Math.max(0,Math.min(others.length,idx));insertRef.current=idx
-  const previewOrder=[...others];previewOrder.splice(idx,0,dragged)
-  const full=[title,...previewOrder].filter(Boolean)
-  const shifts={}
-  full.forEach((n,i)=>{
-   if(n.id===node.id)return
-   const desired=slots[i]??40+i*230
-   shifts[n.id]=desired-n.position.y
-   const el=nodeEl(n.id)
-   if(el){el.classList.add('preview-shift');el.style.translate='0 '+shifts[n.id]+'px'}
-  })
-  evidence.forEach(e=>{
-   const d=shifts[e.target]||0,el=nodeEl(e.id)
-   if(el){el.classList.add('preview-shift');el.style.translate='0 '+d+'px'}
-  })
-  const {x,y,zoom}=flowRef.current.getViewport()
-  const ghostY=slots[idx+1]??200+(idx*230)
-  const g=ghostRef.current
-  g.style.left=(220*zoom+x)+'px';g.style.top=(ghostY*zoom+y)+'px'
-  g.style.transform='scale('+zoom+')';g.style.transformOrigin='top left'
-  g.style.display='block'
+  targetSlots.forEach((slotY,i)=>{const d=Math.abs(y-slotY);if(d<best){best=d;idx=i}})
+  return Math.max(0,Math.min(ordered.length-2,idx))
  }
+
+ const updatePreview=(dragId,dragPos)=>{
+  const title=ordered.find(n=>n.data.role==='TITLE')
+  const dragged=ordered.find(n=>n.id===dragId)
+  if(!dragged||!title)return
+
+  const others=ordered.filter(n=>n.id!==dragId&&n.data.role!=='TITLE')
+  const idx=getInsertIndex(dragPos.y)
+  insertRef.current=idx
+
+  const previewOrder=[...others]
+  previewOrder.splice(idx,0,dragged)
+  const full=[title,...previewOrder]
+
+  const desiredY={}
+  full.forEach((n,i)=>{if(n.id!==dragId)desiredY[n.id]=slots[i]??40+i*230})
+
+  const articlePreview=ordered.map((n,i)=>{
+   const num=String(i+1).padStart(2,'0')
+   if(n.id===dragId)return {...n,draggable:true,position:dragPos,data:{...n.data,num}}
+   return {...n,draggable:n.data.role!=='TITLE',position:{x:220,y:desiredY[n.id]??n.position.y},data:{...n.data,num}}
+  })
+
+  const evidencePreview=evNodes.map(ev=>{
+   const meta=evidence.find(e=>e.id===ev.id)
+   if(meta?.target===dragId)return {...ev,hidden:true}
+   const articleNow=ordered.find(n=>n.id===meta?.target)
+   const targetY=desiredY[meta?.target]
+   const dy=articleNow&&targetY!=null?targetY-articleNow.position.y:0
+   return {...ev,hidden:false,position:{x:ev.position.x,y:ev.position.y+dy}}
+  })
+
+  setDisplayNodes([...articlePreview,...evidencePreview])
+
+  if(ghostRef.current&&flowRef.current){
+   const {x,y,zoom}=flowRef.current.getViewport()
+   const ghostY=slots[idx+1]??200+idx*230
+   const g=ghostRef.current
+   g.style.left=(220*zoom+x)+'px'
+   g.style.top=(ghostY*zoom+y)+'px'
+   g.style.transform='scale('+zoom+')'
+   g.style.transformOrigin='top left'
+   g.style.display='block'
+  }
+ }
+
  const start=(event,node)=>{
   if(node.type!=='article'||node.data.role==='TITLE')return
-  dragIdRef.current=node.id;setDraggingId(node.id)
-  const attached=new Set(evidence.filter(e=>e.target===node.id).map(e=>e.id))
-  setDisplayNodes(prev=>prev.map(n=>attached.has(n.id)?{...n,hidden:true}:n))
+  dragIdRef.current=node.id
+  setDraggingId(node.id)
   dragStartRef.current={clientX:event.clientX,clientY:event.clientY,x:node.position.x,y:node.position.y}
-  buildGhost(node);preview(node,true)
+  buildGhost(node)
+  updatePreview(node.id,node.position)
  }
+
  const move=(event,node)=>{
   if(node.type!=='article'||node.data.role==='TITLE'||!dragStartRef.current)return
   const v=flowRef.current?.getViewport?.()||{zoom:1}
   const factor=Math.max(.01,(v.zoom||1)*(scale||1))
-  const pos={x:dragStartRef.current.x+(event.clientX-dragStartRef.current.clientX)/factor,y:dragStartRef.current.y+(event.clientY-dragStartRef.current.clientY)/factor}
-  setDisplayNodes(prev=>prev.map(n=>n.id===node.id?{...n,position:pos}:n))
-  preview({...node,position:pos})
+  const pos={
+   x:dragStartRef.current.x+(event.clientX-dragStartRef.current.clientX)/factor,
+   y:dragStartRef.current.y+(event.clientY-dragStartRef.current.clientY)/factor
+  }
+  updatePreview(node.id,pos)
  }
+
  const drop=(_,node)=>{
   if(node.type!=='article'||node.data.role==='TITLE')return
   const idx=insertRef.current
-  setArticles(list=>{const title=list.find(n=>n.data.role==='TITLE');const moved=list.find(n=>n.id===node.id);const rest=list.filter(n=>n.id!==node.id&&n.data.role!=='TITLE').sort((a,b)=>a.position.y-b.position.y);rest.splice(idx,0,moved);return [title,...rest].filter(Boolean).map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))})
-  setSelected(node.id);setDisplayNodes(prev=>prev.map(n=>n.hidden?{...n,hidden:false}:n));dragIdRef.current=null;dragStartRef.current=null;setDraggingId(null)
-  requestAnimationFrame(()=>requestAnimationFrame(clearPreview))
+  setArticles(list=>{
+   const title=list.find(n=>n.data.role==='TITLE')
+   const moved=list.find(n=>n.id===node.id)
+   const rest=list.filter(n=>n.id!==node.id&&n.data.role!=='TITLE').sort((a,b)=>a.position.y-b.position.y)
+   rest.splice(idx,0,moved)
+   return [title,...rest].filter(Boolean).map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))
+  })
+  setSelected(node.id)
+  dragIdRef.current=null
+  dragStartRef.current=null
+  setDraggingId(null)
+  if(ghostRef.current){ghostRef.current.style.display='none';ghostRef.current.replaceChildren()}
  }
- return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={visibleEdges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
+
+ return <section className="graphPanel">
+  <div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div>
+  <div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/>
+   <ReactFlow nodes={displayNodes} edges={dragEdges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i}
+    onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop}
+    defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable>
+    <Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/>
+   </ReactFlow>
+  </div>
+ </section>
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
