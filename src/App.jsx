@@ -68,6 +68,16 @@ function Graph({articles,setArticles,setSelected,scale=1}){
  const [displayNodes,setDisplayNodes]=useState(staticNodes)
  useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(staticNodes)},[staticNodes])
 
+ const graphExtent=useMemo(()=>{
+  const source=staticNodes
+  const minX=Math.min(...source.map(n=>n.position.x))
+  const maxX=Math.max(...source.map(n=>n.position.x+(n.type==='article'?260:132)))
+  const minY=Math.min(...source.map(n=>n.position.y))
+  const maxY=Math.max(...source.map(n=>n.position.y+(n.type==='article'?(n.data?.kind==='image'?210:150):72)))
+  const padX=240,padTop=180,padBottom=320
+  return [[minX-padX,minY-padTop],[maxX+padX,maxY+padBottom]]
+ },[staticNodes])
+
  const normalEdges=useMemo(()=>{
   const main=ordered.slice(0,-1).map((n,i)=>({
    id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'
@@ -173,9 +183,11 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   if(node.type!=='article'||node.data.role==='TITLE'||!dragStartRef.current)return
   const v=flowRef.current?.getViewport?.()||{zoom:1}
   const factor=Math.max(.01,(v.zoom||1)*(scale||1))
+  const rawX=dragStartRef.current.x+(event.clientX-dragStartRef.current.clientX)/factor
+  const rawY=dragStartRef.current.y+(event.clientY-dragStartRef.current.clientY)/factor
   const pos={
-   x:dragStartRef.current.x+(event.clientX-dragStartRef.current.clientX)/factor,
-   y:dragStartRef.current.y+(event.clientY-dragStartRef.current.clientY)/factor
+   x:Math.max(graphExtent[0][0],Math.min(graphExtent[1][0]-260,rawX)),
+   y:Math.max(graphExtent[0][1],Math.min(graphExtent[1][1]-150,rawY))
   }
   updatePreview(node.id,pos)
  }
@@ -202,7 +214,8 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   <div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/>
    <ReactFlow nodes={displayNodes} edges={dragEdges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i}
     onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop}
-    defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable>
+    defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable
+    translateExtent={graphExtent} nodeExtent={graphExtent}>
     <Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/>
    </ReactFlow>
   </div>
