@@ -1,4 +1,4 @@
-import {useMemo,useState} from 'react'
+import {useEffect,useMemo,useRef,useState} from 'react'
 import {ReactFlow,Background,Controls,MiniMap,Handle,Position} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {Plus,Search,X,Trash2,Upload,GripVertical,Link2,FileText,Music2,Image as ImageIcon,Map,FileCheck2,ChevronLeft,ChevronRight} from 'lucide-react'
@@ -55,11 +55,11 @@ export default function App(){
  }
  const reset=()=>{setSourceCollapsed(false);setWidths([17.5,42.5,22.5,17.5])}
  const toggleSources=()=>{if(sourceCollapsed){const restore=Math.max(11,savedSourceWidth);setWidths(w=>[restore,w[1]-(restore-w[0]),w[2],w[3]]);setSourceCollapsed(false)}else{const collapsed=4;setSavedSourceWidth(widths[0]);setWidths(w=>[collapsed,w[1]+(w[0]-collapsed),w[2],w[3]]);setSourceCollapsed(true)}}
- return <div className="app"><header><div className="brand">NodeArticle <small>취재의 근거가 살아있는 글쓰기</small></div><div className="headerStory"><span>‹</span><b>서울시 자율주행 버스 시범운행 시작</b><small>◷ 저장됨 · 10:24</small></div><nav><button className="active">작성</button><button>자료</button><button>검증</button><button>히스토리</button><button className="export">내보내기⌄</button><i>J</i></nav></header>
+ return <div className="viewportFit"><div className="fitStage" ref={shellRef} style={{transform:"scale("+scale+")",width:(100/scale)+"%",height:(100/scale)+"%"}}><div className="app"><header><div className="brand">NodeArticle <small>취재의 근거가 살아있는 글쓰기</small></div><div className="headerStory"><span>‹</span><b>서울시 자율주행 버스 시범운행 시작</b><small>◷ 저장됨 · 10:24</small></div><nav><button className="active">작성</button><button>자료</button><button>검증</button><button>히스토리</button><button className="export">내보내기⌄</button><i>J</i></nav></header>
  <main className="workspace">
   <div className={"pane sourcePane"+(sourceCollapsed?" isCollapsed":"")} style={{width:widths[0]+'%'}}><Sources collapsed={sourceCollapsed} onToggle={toggleSources}/></div><div className={"paneResizer"+(sourceCollapsed?" locked":"")} onPointerDown={e=>!sourceCollapsed&&resize(0,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[1]+'%'}}><Graph articles={articles} setSelected={setSelected}/></div><div className="paneResizer" onPointerDown={e=>resize(1,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[2]+'%'}}><LiveArticle articles={articles}/></div><div className="paneResizer" onPointerDown={e=>resize(2,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[3]+'%'}}><Properties node={current} onChange={change}/></div>
- </main></div>
+ </main></div></div></div>
 }
