@@ -48,15 +48,15 @@ const sourceItems=[
 ['pdf','서울시 보도자료','PDF · 2.3MB'],['audio','자율주행 인터뷰_김정호.mp3','오디오 · 48:12'],['pdf','국토부 자율주행 정책보고서','PDF · 5.1MB'],['image','서울시 자율주행 시범운행.jpg','이미지 · 1.2MB'],['web','관련 기사 모음','웹페이지 · 12개'],['doc','업계 전문가 인터뷰','문서 · 32KB']]
 function Sources({collapsed,onToggle}){return <aside className={"sourcesPanel"+(collapsed?" collapsed":"")}><div className="sideHead">{!collapsed&&<b>Sources</b>}<div className="sourceHeadActions">{!collapsed&&<button><Plus/>추가</button>}<button className="collapseSource" onClick={onToggle} title={collapsed?"Sources 펼치기":"Sources 접기"}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button></div></div>{collapsed?<div className="collapsedSourceRail"><FileText/><Music2/><ImageIcon/><Link2/></div>:<><div className="sourceTabs"><b>전체</b><span>문서</span><span>오디오</span><span>웹</span><span>이미지</span></div><div className="sourceSearch"><Search/>자료 검색...</div><div className="sourceItems">{sourceItems.map(([k,t,m])=><div className="sourceItem" key={t}><span className={"srcIcon "+k}>{iconFor(k)}</span><span><b>{t}</b><small>{m}</small></span></div>)}</div><div className="addSource"><Plus/> 더 많은 자료 추가<div className="sourceButtons"><button>◢</button><button>▶</button><button>🔗</button></div><small>또는 파일을 드래그하세요</small></div></>}</aside>}
 function Properties({node,onChange}){return <aside className="properties"><div className="propHead"><b>Node Properties</b><X/></div><div className="propTabs"><b>기본 정보</b><span>연결된 자료</span></div><label>노드 타입</label><div className="selectBox"><i style={{background:colors[node.data.role]}}/>{node.data.role}<span>⌄</span></div><label>노드 요약명<small>(편집용, 기사에 표시되지 않음)</small></label><input value={node.data.summary} onChange={e=>onChange('summary',e.target.value)}/><label>본문 내용<small>(실제 기사에 포함되는 텍스트)</small></label><textarea value={node.data.body} onChange={e=>onChange('body',e.target.value)}/><div className="linkedHead"><b>연결된 근거 자료 (4)</b><button>+ 추가</button></div><div className="linkedList"><div>🗺️ 노선 지도 <X/></div><div>📕 국토부 정책보고서 <X/></div><div>📘 운영 계획안 <X/></div><div>🎵 관계자 인터뷰 <X/></div></div><label>노드 색상</label><div className="colorDots">{Object.values(colors).slice(1).map(c=><i key={c} style={{background:c}}/>)}</div><div className="propActions"><button>↑　위로 이동</button><button>↓　아래로 이동</button><button>▣　복제</button><button className="danger"><Trash2/> 노드 삭제</button></div></aside>}
-function Graph({articles,setArticles,setSelected}){
+function Graph({articles,setArticles,setSelected,scale=1}){
  const ordered=useMemo(()=>[...articles].sort((a,b)=>a.position.y-b.position.y),[articles])
  const slots=[40,200,430,670,920,1160,1390]
- const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null)
+ const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null),dragStartRef=useRef(null)
  const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
  const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
  const [displayNodes,setDisplayNodes]=useState(nodes)
  useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(nodes)},[nodes])
- const onNodesChange=changes=>setDisplayNodes(prev=>applyNodeChanges(changes,prev))
+ const onNodesChange=changes=>setDisplayNodes(prev=>applyNodeChanges(dragIdRef.current?changes.filter(c=>!(c.type==='position'&&c.id===dragIdRef.current)):changes,prev))
  const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
  const nodeEl=id=>document.querySelector('.react-flow__node[data-id="'+id+'"]')
  const clearPreview=()=>{
@@ -106,15 +106,23 @@ function Graph({articles,setArticles,setSelected}){
   g.style.transform='scale('+zoom+')';g.style.transformOrigin='top left'
   g.style.display='block'
  }
- const start=(_,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;dragIdRef.current=node.id;buildGhost(node);preview(node,true)}
+ const start=(event,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;dragIdRef.current=node.id;dragStartRef.current={clientX:event.clientX,clientY:event.clientY,x:node.position.x,y:node.position.y};buildGhost(node);preview(node,true)}
+ const move=(event,node)=>{
+  if(node.type!=='article'||node.data.role==='TITLE'||!dragStartRef.current)return
+  const v=flowRef.current?.getViewport?.()||{zoom:1}
+  const factor=Math.max(.01,(v.zoom||1)*(scale||1))
+  const pos={x:dragStartRef.current.x+(event.clientX-dragStartRef.current.clientX)/factor,y:dragStartRef.current.y+(event.clientY-dragStartRef.current.clientY)/factor}
+  setDisplayNodes(prev=>prev.map(n=>n.id===node.id?{...n,position:pos}:n))
+  preview({...node,position:pos})
+ }
  const drop=(_,node)=>{
   if(node.type!=='article'||node.data.role==='TITLE')return
   const idx=insertRef.current
   setArticles(list=>{const title=list.find(n=>n.data.role==='TITLE');const moved=list.find(n=>n.id===node.id);const rest=list.filter(n=>n.id!==node.id&&n.data.role!=='TITLE').sort((a,b)=>a.position.y-b.position.y);rest.splice(idx,0,moved);return [title,...rest].filter(Boolean).map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))})
-  setSelected(node.id);dragIdRef.current=null
+  setSelected(node.id);dragIdRef.current=null;dragStartRef.current=null
   requestAnimationFrame(()=>requestAnimationFrame(clearPreview))
  }
- return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={(_,n)=>preview(n)} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
+ return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
@@ -135,7 +143,7 @@ export default function App(){
  return <div className="viewportFit"><div className="fitStage" ref={shellRef} style={{zoom:scale,width:(100/scale)+"%",height:(100/scale)+"%"}}><div className="app"><header><div className="brand">NodeArticle <small>취재의 근거가 살아있는 글쓰기</small></div><div className="headerStory"><span>‹</span><b>서울시 자율주행 버스 시범운행 시작</b><small>◷ 저장됨 · 10:24</small></div><nav><button className="active">작성</button><button>자료</button><button>검증</button><button>히스토리</button><button className="export">내보내기⌄</button><i>J</i></nav></header>
  <main className="workspace">
   <div className={"pane sourcePane"+(sourceCollapsed?" isCollapsed":"")} style={{width:widths[0]+'%'}}><Sources collapsed={sourceCollapsed} onToggle={toggleSources}/></div><div className={"paneResizer"+(sourceCollapsed?" locked":"")} onPointerDown={e=>!sourceCollapsed&&resize(0,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
-  <div className="pane" style={{width:widths[1]+'%'}}><Graph articles={articles} setArticles={setArticles} setSelected={setSelected}/></div><div className="paneResizer" onPointerDown={e=>resize(1,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
+  <div className="pane" style={{width:widths[1]+'%'}}><Graph articles={articles} setArticles={setArticles} setSelected={setSelected} scale={scale}/></div><div className="paneResizer" onPointerDown={e=>resize(1,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[2]+'%'}}><LiveArticle articles={articles}/></div><div className="paneResizer" onPointerDown={e=>resize(2,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[3]+'%'}}><Properties node={current} onChange={change}/></div>
  </main></div></div></div>
