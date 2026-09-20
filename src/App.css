@@ -3,3 +3,12 @@
 .titleNode{border-color:#a9c7b7;background:linear-gradient(180deg,#f3faf6 0%,#fff 100%)}
 .tag.title{background:#dceee4;color:#2d6a4b}
 .headlineInput{width:100%;box-sizing:border-box;border:0;background:transparent;resize:none;outline:none;font:700 18px/1.35 inherit;color:#1f2a25;padding:10px 2px 14px;min-height:72px}
+
+.graphCanvasPane .flowWrap{background:#fbfcfe}
+.evidenceNode{width:170px;padding:11px 13px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;box-shadow:0 3px 10px rgba(15,23,42,.06);font-size:11px}
+.evidenceNode b{display:flex;gap:6px;align-items:center;color:#253247;margin-bottom:5px}
+.evidenceNode span{color:#718096;font-size:10px}
+.articleEdge .react-flow__edge-path{stroke:#6b8bab;stroke-width:2}
+.evidenceEdge .react-flow__edge-path{stroke:#91a4b8;stroke-width:1.35;stroke-dasharray:4 3}
+.react-flow__minimap{border:1px solid #dbe3ec;border-radius:8px;box-shadow:0 4px 12px rgba(15,23,42,.08)}
+.react-flow__controls{border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;box-shadow:none}
