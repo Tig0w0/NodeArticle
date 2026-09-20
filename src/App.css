@@ -31,3 +31,11 @@
 .react-flow__node.dragging .articleNode{opacity:.48!important;visibility:visible!important;box-shadow:0 16px 34px rgba(43,72,105,.2);transform:scale(1.025);border-color:var(--accent);transition:opacity .12s ease,transform .12s ease,box-shadow .12s ease}
 .react-flow__node.dragging .articleNode *{pointer-events:none}
 
+
+/* Sources header action alignment */
+.sourceHeadActions{display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-left:auto;white-space:nowrap;flex:0 0 auto}
+.sideHead .sourceHeadActions>button{margin:0;flex:0 0 auto;height:30px}
+.sideHead .sourceHeadActions>button:not(.collapseSource){padding:0 9px}
+.sideHead .collapseSource{width:30px;padding:0!important;display:grid!important;place-items:center}
+.sideHead .collapseSource svg{width:14px;height:14px;margin:0}
+
