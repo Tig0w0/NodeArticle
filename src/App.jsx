@@ -1,5 +1,5 @@
 import {useEffect,useMemo,useRef,useState} from 'react'
-import {ReactFlow,Background,Controls,MiniMap,Handle,Position} from '@xyflow/react'
+import {ReactFlow,Background,Controls,MiniMap,Handle,Position,applyNodeChanges} from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import {Plus,Search,X,Trash2,Upload,GripVertical,Link2,FileText,Music2,Image as ImageIcon,Map,FileCheck2,ChevronLeft,ChevronRight} from 'lucide-react'
 import './App.css'
@@ -54,6 +54,9 @@ function Graph({articles,setArticles,setSelected}){
  const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null)
  const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
  const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
+ const [displayNodes,setDisplayNodes]=useState(nodes)
+ useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(nodes)},[nodes])
+ const onNodesChange=changes=>setDisplayNodes(prev=>applyNodeChanges(changes,prev))
  const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
  const nodeEl=id=>document.querySelector('.react-flow__node[data-id="'+id+'"]')
  const clearPreview=()=>{
@@ -111,7 +114,7 @@ function Graph({articles,setArticles,setSelected}){
   setSelected(node.id);dragIdRef.current=null
   requestAnimationFrame(()=>requestAnimationFrame(clearPreview))
  }
- return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={(_,n)=>preview(n)} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
+ return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={(_,n)=>preview(n)} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
