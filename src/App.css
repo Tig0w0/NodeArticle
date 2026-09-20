@@ -12,3 +12,47 @@
 .evidenceEdge .react-flow__edge-path{stroke:#91a4b8;stroke-width:1.35;stroke-dasharray:4 3}
 .react-flow__minimap{border:1px solid #dbe3ec;border-radius:8px;box-shadow:0 4px 12px rgba(15,23,42,.08)}
 .react-flow__controls{border:1px solid #dbe3ec;border-radius:8px;overflow:hidden;box-shadow:none}
+
+/* 2026 concept visual refresh */
+:root{--ink:#142033;--muted:#738097;--line:#dfe6ef;--panel:#fff;--canvas:#f8fbff;--blue:#3b82f6}
+body{color:var(--ink);background:#f6f8fb}
+header{height:58px;padding:0 18px;border-color:#e5eaf1;box-shadow:0 1px 0 rgba(15,23,42,.02)}
+.brand{gap:8px}.brand b{font-size:19px;letter-spacing:-.5px}.brand>span{color:#8090a8;border:0;padding-left:4px;letter-spacing:0;font-size:10px}.mark{display:none}
+.primary{background:#132238;border-radius:7px;padding:9px 15px}
+aside{top:58px;width:244px;padding:18px 16px;background:#fff;border-color:#e5eaf1}
+.new{background:#f7f9fc;color:#24334a;border:1px solid #e2e8f0}
+nav a{color:#69778c}.active{background:#edf5ff!important;color:#255ca8!important}
+main{margin-left:244px;padding:78px 18px 12px;height:100vh}
+.topline{max-width:none;margin:0 0 10px}.crumb{display:none}.topline h1{font-family:Inter,Pretendard,sans-serif;font-size:18px;letter-spacing:-.4px;margin:0 0 5px}.topline p{font-size:11px;color:#8491a4}
+.sourcebar{max-width:none;margin:10px 0;height:48px;border-color:#e3e9f1;border-radius:7px}
+.workspace{max-width:none;margin:0;height:calc(100vh - 205px);border-color:#dfe6ef;border-radius:7px;box-shadow:0 1px 3px rgba(15,23,42,.03)}
+.graphPane{background:var(--canvas)}.graphCanvasPane .flowWrap{background:#f9fbfe}
+.paneHead{height:42px;background:#fff;border-color:#e7ecf2;padding:0 14px;color:#2d3b50;font-size:10px;font-weight:700}
+.paneHead span{color:#8b97a8;font-weight:500}
+.splitter{width:5px;background:#f5f7fa;border-color:#e3e8ef}.splitter div{height:32px;background:#b9c3d0}
+.node{width:390px;border:1px solid #cfd9e7;border-radius:9px;padding:13px 14px 10px;box-shadow:0 2px 7px rgba(30,50,80,.06);background:#fff}
+.nodeTop{color:#8a98aa}.tag{display:inline-flex;align-items:center;padding:3px 7px;border-radius:4px;background:#eaf2ff;color:#3973c6;font-size:8px;letter-spacing:.6px}
+.tag.title{background:#ffe9eb;color:#d84f5f}.tag.image{background:#eee8ff;color:#7c5ce1}
+.titleNode{border-color:#f0bfc5;background:#fffafa}
+.nodeTitle{font-family:Inter,Pretendard,sans-serif;font-size:14px;font-weight:700;color:#172337}
+.nodeBody{font:11px/1.55 Inter,Pretendard,sans-serif;color:#5f6e82;min-height:60px}
+.headlineInput{font:700 16px/1.35 Inter,Pretendard,sans-serif;color:#172337}
+.nodefoot{border-color:#edf1f5;color:#96a2b2}
+.react-flow__handle{width:7px;height:7px;background:#6383a8;border:1.5px solid #fff}
+.articleEdge .react-flow__edge-path{stroke:#6f8eae;stroke-width:1.7}
+.evidenceEdge .react-flow__edge-path{stroke:#7f98b5;stroke-width:1.25;stroke-dasharray:none}
+.evidenceNode{width:154px;padding:9px 10px;border:1px solid #cbd7e6;border-radius:8px;background:#fff;box-shadow:0 2px 5px rgba(30,50,80,.05);font-size:10px}
+.evidenceNode b{color:#27364b;font-size:10px}.evidenceNode span{font-size:9px;color:#8190a4}
+.react-flow__background pattern circle{fill:#cbd5e1}
+.react-flow__minimap{left:12px!important;right:auto!important;bottom:12px!important;width:128px!important;height:92px!important;background:#fff!important;border-color:#d5deea;opacity:.94}
+.react-flow__controls{left:auto!important;right:12px!important;bottom:12px!important;border-color:#d5deea}
+.articlePane article{max-width:620px;padding:30px 38px 60px}
+.articlePane article h2{font:700 26px/1.3 Inter,Pretendard,sans-serif;letter-spacing:-.7px;color:#111d30}
+.kicker{color:#5580b5}.by{color:#8491a4;border-color:#e9edf2}
+.articlePara{border:0;padding:12px 0}.articlePara small{display:none}.articlePara p{font:14px/1.8 Inter,Pretendard,sans-serif;color:#344155;margin:0}
+.articleImage{border:0;border-radius:7px;background:linear-gradient(135deg,#e8eef5,#f6f8fb);min-height:190px}
+.articlePane figcaption{font-size:9px;color:#8793a4}
+.insertPlus{border-color:#b9c9da;color:#52779f}.insertPlus:hover{background:#edf5ff;border-color:#7ea4cc}
+.insertMenu{border-color:#d6e0eb}.insertMenu button{background:#f4f7fb;color:#40536a}
+footer{max-width:none;margin:7px 2px;color:#98a3b2}
+@media(max-width:1100px){aside{display:none}main{margin-left:0}.node{width:340px}}
