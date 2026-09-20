@@ -43,12 +43,27 @@ function Properties({node,onChange}){return <aside className="properties"><div c
 function Graph({articles,setArticles,setSelected}){
  const ordered=useMemo(()=>[...articles].sort((a,b)=>a.position.y-b.position.y),[articles])
  const slots=[40,200,430,670,920,1160,1390]
+ const dropRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0)
  const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
  const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
  const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
- const drag=(_,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;setArticles(list=>list.map(n=>n.id===node.id?{...n,position:{x:220,y:node.position.y}}:n))}
- const drop=(_,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;setArticles(list=>{const moved=list.map(n=>n.id===node.id?{...n,position:{x:220,y:node.position.y}}:n);const sorted=[...moved].sort((a,b)=>a.position.y-b.position.y);return sorted.map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))});setSelected(node.id)}
- return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDrag={drag} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
+ const showDrop=(node)=>{
+  if(node.type!=='article'||node.data.role==='TITLE'||!dropRef.current||!flowRef.current)return
+  const title=ordered.find(n=>n.data.role==='TITLE')
+  const others=ordered.filter(n=>n.id!==node.id&&n.data.role!=='TITLE')
+  let idx=others.findIndex(n=>node.position.y<n.position.y);if(idx<0)idx=others.length;insertRef.current=idx
+  let markerY
+  if(!others.length)markerY=(title?.position.y||40)+120
+  else if(idx===0)markerY=((title?.position.y||40)+others[0].position.y)/2
+  else if(idx===others.length)markerY=others[others.length-1].position.y+125
+  else markerY=(others[idx-1].position.y+others[idx].position.y)/2
+  const {x,y,zoom}=flowRef.current.getViewport()
+  const el=dropRef.current
+  el.style.display='flex';el.style.left=(220*zoom+x)+'px';el.style.top=(markerY*zoom+y)+'px';el.style.width=(260*zoom)+'px';el.style.transform='translateY(-50%)';el.style.fontSize=Math.max(8,10*zoom)+'px'
+ }
+ const hideDrop=()=>{if(dropRef.current)dropRef.current.style.display='none'}
+ const drop=(_,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;const idx=insertRef.current;setArticles(list=>{const title=list.find(n=>n.data.role==='TITLE');const moved=list.find(n=>n.id===node.id);const rest=list.filter(n=>n.id!==node.id&&n.data.role!=='TITLE').sort((a,b)=>a.position.y-b.position.y);rest.splice(idx,0,moved);return [title,...rest].filter(Boolean).map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))});hideDrop();setSelected(node.id)}
+ return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={dropRef} className="dropPreview"><span>＋</span> 여기에 삽입</div><ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={(_,n)=>showDrop(n)} onNodeDrag={(_,n)=>showDrop(n)} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
