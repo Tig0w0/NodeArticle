@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { ReactFlow, Background, Controls, Handle, Position, useNodesState } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
-import { FileText, Sparkles, Share2, Eye, Plus, Newspaper, Link2, WandSparkles, GripVertical } from 'lucide-react'
+import { FileText, Sparkles, Share2, Plus, Newspaper, Link2, WandSparkles, GripVertical } from 'lucide-react'
 import './App.css'
 
 const article=[
@@ -10,19 +10,21 @@ const article=[
 {id:'quote',label:'QUOTE',title:'“일상에서 체감할 변화”',body:'정부 관계자는 “기술 실증을 넘어 시민들이 일상에서 직접 체감할 수 있는 서비스로 발전시키겠다”고 말했다.'},
 {id:'context',label:'CONTEXT',title:'상용화 경쟁 가속',body:'국내 자율주행 시장은 규제 완화와 기술 투자 확대에 힘입어 빠르게 성장하고 있다. 업계는 이번 사업이 상용화를 앞당길 것으로 보고 있다.'},
 {id:'outlook',label:'OUTLOOK',title:'2027년 정식 서비스 목표',body:'정부는 시범사업 결과를 바탕으로 안전 기준과 운영 지침을 정비해 2027년부터 단계적인 정식 서비스를 추진할 계획이다.'}]
-const X=260,GAP=190
-const makeNodes=(items)=>items.map((n,i)=>({id:n.id,position:{x:X,y:70+i*GAP},data:{...n,index:i},type:'article'}))
-function ArticleNode({data}){return <div className="node"><Handle type="target" position={Position.Top} isConnectable={false}/><div className="nodeTop"><div className={'tag '+data.label.toLowerCase()}>{String(data.index+1).padStart(2,'0')} · {data.label}</div><GripVertical size={15}/></div><h3>{data.title}</h3><p>{data.body}</p><div className="nodefoot"><span>¶ 기사 문단</span><span>드래그하여 순서 변경</span></div><Handle type="source" position={Position.Bottom} isConnectable={false}/></div>}
+const X=80,GAP=178
+const makeNodes=()=>article.map((n,i)=>({id:n.id,position:{x:X,y:65+i*GAP},data:{...n,index:i},type:'article'}))
+function ArticleNode({data}){return <div className="node"><Handle type="target" position={Position.Top} isConnectable={false}/><div className="nodeTop"><div className={'tag '+data.label.toLowerCase()}>{String(data.index+1).padStart(2,'0')} · {data.label}</div><GripVertical size={15}/></div><h3>{data.title}</h3><p>{data.body}</p><div className="nodefoot"><span>¶ 기사 문단</span><span>위아래로 이동</span></div><Handle type="source" position={Position.Bottom} isConnectable={false}/></div>}
 function App(){
- const [nodes,setNodes,onNodesChange]=useNodesState(makeNodes(article)); const [mode,setMode]=useState('graph')
- const ordered=[...nodes].sort((a,b)=>a.position.y-b.position.y)
- const edges=ordered.slice(0,-1).map((n,i)=>({id:'e-'+n.id,source:n.id,target:ordered[i+1].id,type:'smoothstep'}))
- const snap=(_,dragged)=>{const others=nodes.filter(n=>n.id!==dragged.id); const rank=others.filter(n=>n.position.y<dragged.position.y).length; const ids=[...others.map(n=>n.id)];ids.splice(rank,0,dragged.id);setNodes(ids.map((id,i)=>{const old=nodes.find(n=>n.id===id);return {...old,position:{x:X,y:70+i*GAP},data:{...old.data,index:i}}}))}
- return <div className="app"><header><div className="brand"><div className="mark"><Share2 size={18}/></div><b>NodeArticle</b><span>STORY COMPOSER</span></div><div className="headActions"><button className="ghost"><Eye size={16}/> 미리보기</button><button className="primary"><Sparkles size={16}/> 기사 생성</button></div></header>
- <aside><div className="new"><Plus size={17}/> 새 기사</div><nav><div className="navtitle">WORKSPACE</div><a className="active"><Newspaper/>스토리 에디터</a><a><FileText/>소스 라이브러리</a><a><WandSparkles/>AI 생성 기록</a></nav><div className="recent"><div className="navtitle">RECENT STORIES</div><p className="sel">자율주행 시범사업 확대</p><p>AI 반도체 투자 계획</p><p>도심 재개발 정책 발표</p></div><div className="profile"><div>KA</div><span><b>김아름 기자</b><small>Demo workspace</small></span></div></aside>
- <main><section className="topline"><div><div className="crumb">STORIES / DRAFT</div><h1>자율주행 시범사업 확대</h1><p>실제 기사처럼 위에서 아래로 읽습니다. 문단을 원하는 위치로 끌어 놓으면 흐름이 자동으로 다시 연결됩니다.</p></div><div className="switch"><button onClick={()=>setMode('graph')} className={mode==='graph'?'on':''}><Share2/>노드</button><button onClick={()=>setMode('article')} className={mode==='article'?'on':''}><FileText/>기사</button></div></section>
+ const [nodes,setNodes,onNodesChange]=useNodesState(makeNodes()); const [split,setSplit]=useState(48); const [dropIndex,setDropIndex]=useState(null); const shell=useRef(null)
+ const ordered=[...nodes].sort((a,b)=>a.position.y-b.position.y); const edges=ordered.slice(0,-1).map((n,i)=>({id:'e-'+n.id,source:n.id,target:ordered[i+1].id,type:'smoothstep'}))
+ const drag=(_,n)=>setDropIndex(Math.max(0,Math.min(nodes.length-1,Math.round((n.position.y-65)/GAP))))
+ const snap=(_,dragged)=>{const others=ordered.filter(n=>n.id!==dragged.id); const rank=dropIndex??0; others.splice(rank,0,dragged);setNodes(others.map((n,i)=>({...n,position:{x:X,y:65+i*GAP},data:{...n.data,index:i}})));setDropIndex(null)}
+ const resize=(e)=>{e.preventDefault();const move=ev=>{const r=shell.current.getBoundingClientRect();setSplit(Math.max(30,Math.min(70,((ev.clientX-r.left)/r.width)*100)))};const up=()=>{removeEventListener('pointermove',move);removeEventListener('pointerup',up)};addEventListener('pointermove',move);addEventListener('pointerup',up)}
+ return <div className="app"><header><div className="brand"><div className="mark"><Share2 size={18}/></div><b>NodeArticle</b><span>STORY COMPOSER</span></div><button className="primary"><Sparkles size={16}/> 기사 생성</button></header>
+ <aside><div className="new"><Plus size={17}/> 새 기사</div><nav><div className="navtitle">WORKSPACE</div><a className="active"><Newspaper/>스토리 에디터</a><a><FileText/>소스 라이브러리</a><a><WandSparkles/>AI 생성 기록</a></nav><div className="recent"><div className="navtitle">RECENT STORIES</div><p className="sel">자율주행 시범사업 확대</p><p>AI 반도체 투자 계획</p></div></aside>
+ <main><section className="topline"><div><div className="crumb">STORIES / DRAFT</div><h1>자율주행 시범사업 확대</h1><p>왼쪽에서 구조를 바꾸면 오른쪽 기사가 즉시 재구성됩니다.</p></div></section>
  <section className="sourcebar"><div><Link2/><span><b>연결된 소스 3개</b><small>보도자료 · 브리핑 · 시장 리포트</small></span></div><button>소스 보기 →</button></section>
- {mode==='graph'?<div className="canvas"><div className="canvashead"><span><i></i> ARTICLE FLOW · TOP → BOTTOM</span><small>문단을 위아래로 드래그하세요 · 연결은 자동입니다</small></div><ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onNodeDragStop={snap} nodeTypes={{article:ArticleNode}} nodesConnectable={false} fitView fitViewOptions={{padding:.15}}><Background gap={24} size={1}/><Controls/></ReactFlow></div>:<div className="preview"><div className="kicker">TECH · MOBILITY</div><h2>{ordered[0].data.title}</h2><div className="by">김아름 기자 · 방금 전</div>{ordered.map(x=><p key={x.id}>{x.data.body}</p>)}</div>}
- <footer><span><b>{nodes.length}</b> 문단 · 자동 연결</span><span>위치 변경 → 스냅 정렬 → 기사 순서 즉시 반영</span></footer></main></div>
-}
+ <div className="workspace" ref={shell}><section className="graphPane" style={{width:split+'%'}}><div className="paneHead"><b>ARTICLE FLOW</b><span>드래그하면 삽입 위치가 표시됩니다</span></div><div className="flowWrap">{dropIndex!==null&&<div className="dropMarker" style={{top:65+dropIndex*GAP-12}}><span>여기에 삽입</span></div>}<ReactFlow nodes={nodes} edges={edges} onNodesChange={onNodesChange} onNodeDrag={drag} onNodeDragStop={snap} nodeTypes={{article:ArticleNode}} nodesConnectable={false} fitView fitViewOptions={{padding:.1}}><Background gap={24} size={1}/><Controls/></ReactFlow></div></section>
+ <div className="splitter" onPointerDown={resize}><div></div></div>
+ <section className="articlePane" style={{width:(100-split)+'%'}}><div className="paneHead"><b>LIVE ARTICLE</b><span>노드 순서와 실시간 동기화</span></div><article><div className="kicker">TECH · MOBILITY</div><h2>{ordered[0].data.title}</h2><div className="by">김아름 기자 · DRAFT</div>{ordered.map((x,i)=><div className="articlePara" key={x.id}><small>{String(i+1).padStart(2,'0')} · {x.data.label}</small><p>{x.data.body}</p></div>)}</article></section></div>
+ <footer><span><b>{nodes.length}</b> 문단 · 자동 연결</span><span>가운데 분할선을 드래그해 작업 영역 크기를 조절하세요</span></footer></main></div>}
 export default App
