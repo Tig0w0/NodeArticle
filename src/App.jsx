@@ -52,8 +52,9 @@ function Graph({articles,setArticles,setSelected,scale=1}){
  const ordered=useMemo(()=>[...articles].sort((a,b)=>a.position.y-b.position.y),[articles])
  const slots=[40,200,430,670,920,1160,1390]
  const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null),dragStartRef=useRef(null)
+ const [draggingId,setDraggingId]=useState(null)
  const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
- const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
+ const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes.map(n=>({...n,hidden:draggingId?evidence.find(e=>e.id===n.id)?.target===draggingId:false}))],[ordered,evNodes,draggingId])
  const [displayNodes,setDisplayNodes]=useState(nodes)
  useEffect(()=>{if(!dragIdRef.current)setDisplayNodes(nodes)},[nodes])
  const onNodesChange=changes=>setDisplayNodes(prev=>applyNodeChanges(dragIdRef.current?changes.filter(c=>!(c.type==='position'&&c.id===dragIdRef.current)):changes,prev))
@@ -106,7 +107,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   g.style.transform='scale('+zoom+')';g.style.transformOrigin='top left'
   g.style.display='block'
  }
- const start=(event,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;dragIdRef.current=node.id;dragStartRef.current={clientX:event.clientX,clientY:event.clientY,x:node.position.x,y:node.position.y};buildGhost(node);preview(node,true)}
+ const start=(event,node)=>{if(node.type!=='article'||node.data.role==='TITLE')return;dragIdRef.current=node.id;setDraggingId(node.id);dragStartRef.current={clientX:event.clientX,clientY:event.clientY,x:node.position.x,y:node.position.y};buildGhost(node);preview(node,true)}
  const move=(event,node)=>{
   if(node.type!=='article'||node.data.role==='TITLE'||!dragStartRef.current)return
   const v=flowRef.current?.getViewport?.()||{zoom:1}
@@ -119,10 +120,10 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   if(node.type!=='article'||node.data.role==='TITLE')return
   const idx=insertRef.current
   setArticles(list=>{const title=list.find(n=>n.data.role==='TITLE');const moved=list.find(n=>n.id===node.id);const rest=list.filter(n=>n.id!==node.id&&n.data.role!=='TITLE').sort((a,b)=>a.position.y-b.position.y);rest.splice(idx,0,moved);return [title,...rest].filter(Boolean).map((n,i)=>({...n,position:{x:220,y:slots[i]??40+i*230}}))})
-  setSelected(node.id);dragIdRef.current=null;dragStartRef.current=null
+  setSelected(node.id);dragIdRef.current=null;dragStartRef.current=null;setDraggingId(null)
   requestAnimationFrame(()=>requestAnimationFrame(clearPreview))
  }
- return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
+ return <section className="graphPanel"><div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div><div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/><ReactFlow nodes={displayNodes} edges={draggingId?[]:edges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i} onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop} defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable><Background variant="dots" gap={18} size={1}/><MiniMap pannable zoomable position="bottom-left"/><Controls position="top-right"/></ReactFlow></div></section>
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
