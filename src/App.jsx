@@ -30,10 +30,18 @@ const evidence=[
 ]
 function iconFor(k){if(k==='audio')return <Music2/>;if(k==='image')return <ImageIcon/>;if(k==='map')return <Map/>;if(k==='doc')return <FileCheck2/>;return <FileText/>}
 function ArticleNode({data,selected}){return <div className={'articleNode '+data.role.toLowerCase()+(selected?' selected':'')} style={{'--accent':colors[data.role]}}>
- <Handle type="target" position={Position.Top}/><div className="nodeTop"><span className="num">{data.num}</span><b className="role">{data.role}</b><GripVertical/></div>
+ <Handle id="flow-in" type="target" position={Position.Top} className="flowHandle"/>
+ <Handle id="ref-left" type="target" position={Position.Left} className="refHandle"/>
+ <div className="nodeTop"><span className="num">{data.num}</span><b className="role">{data.role}</b><GripVertical/></div>
  {data.kind==='image'?<><img src={BUS_IMG} className="nodePhoto"/><small>{data.body}</small></>:<><strong>{data.summary}</strong>{data.role!=='TITLE'&&<p>{data.body}</p>}</>}
- <Handle type="source" position={Position.Bottom}/></div>}
-function EvidenceNode({data}){return <div className="evidenceNode"><Handle type="target" position={Position.Left}/><Handle type="source" position={Position.Right}/><span className={'evIcon '+data.icon}>{iconFor(data.icon)}</span><span><b>{data.title}</b><small>{data.meta}</small></span></div>}
+ <Handle id="ref-right" type="source" position={Position.Right} className="refHandle"/>
+ <Handle id="flow-out" type="source" position={Position.Bottom} className="flowHandle"/>
+ </div>}
+function EvidenceNode({data}){return <div className="evidenceNode">
+ <Handle id="ev-in" type="target" position={Position.Left}/>
+ <Handle id="ev-out" type="source" position={Position.Right}/>
+ <span className={'evIcon '+data.icon}>{iconFor(data.icon)}</span><span><b>{data.title}</b><small>{data.meta}</small></span>
+ </div>}
 const nodeTypes={article:ArticleNode,evidence:EvidenceNode}
 
 const sourceItems=[
@@ -46,7 +54,7 @@ function Graph({articles,setArticles,setSelected}){
  const dropRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0)
  const evNodes=useMemo(()=>evidence.map(e=>{const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y;const target=articles.find(n=>n.id===e.target)?.position.y||base;return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}}),[articles])
  const nodes=useMemo(()=>[...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),...evNodes],[ordered,evNodes])
- const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
+ const edges=useMemo(()=>{const main=ordered.slice(0,-1).map((n,i)=>({id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'}));const refs=evidence.map((e,i)=>({id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',type:'smoothstep',className:'refEdge',label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'}));return [...main,...refs]},[ordered])
  const showDrop=(node)=>{
   if(node.type!=='article'||node.data.role==='TITLE'||!dropRef.current||!flowRef.current)return
   const title=ordered.find(n=>n.data.role==='TITLE')
