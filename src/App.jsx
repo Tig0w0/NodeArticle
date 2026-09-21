@@ -47,19 +47,23 @@ const editableRoles=['LEAD','FACT','IMAGE','QUOTE','CONTEXT','OUTLOOK']
 
 const sourceItems=[
 ['pdf','서울시 보도자료','PDF · 2.3MB'],['audio','자율주행 인터뷰_김정호.mp3','오디오 · 48:12'],['pdf','국토부 자율주행 정책보고서','PDF · 5.1MB'],['image','서울시 자율주행 시범운행.jpg','이미지 · 1.2MB'],['web','관련 기사 모음','웹페이지 · 12개'],['doc','업계 전문가 인터뷰','문서 · 32KB']]
-function Sources({collapsed,onToggle}){return <aside className={"sourcesPanel"+(collapsed?" collapsed":"")}><div className="sideHead">{!collapsed&&<b>Sources</b>}<div className="sourceHeadActions">{!collapsed&&<button><Plus/>추가</button>}<button className="collapseSource" onClick={onToggle} title={collapsed?"Sources 펼치기":"Sources 접기"}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button></div></div>{collapsed?<div className="collapsedSourceRail"><FileText/><Music2/><ImageIcon/><Link2/></div>:<><div className="sourceTabs"><b>전체</b><span>문서</span><span>오디오</span><span>웹</span><span>이미지</span></div><div className="sourceSearch"><Search/>자료 검색...</div><div className="sourceItems">{sourceItems.map(([k,t,m])=><div className="sourceItem" key={t}><span className={"srcIcon "+k}>{iconFor(k)}</span><span><b>{t}</b><small>{m}</small></span></div>)}</div><div className="addSource"><Plus/> 더 많은 자료 추가<div className="sourceButtons"><button>◢</button><button>▶</button><button>🔗</button></div><small>또는 파일을 드래그하세요</small></div></>}</aside>}
+function Sources({collapsed,onToggle}){return <aside className={"sourcesPanel"+(collapsed?" collapsed":"")}><div className="sideHead">{!collapsed&&<b>Sources</b>}<div className="sourceHeadActions">{!collapsed&&<button><Plus/>추가</button>}<button className="collapseSource" onClick={onToggle} title={collapsed?"Sources 펼치기":"Sources 접기"}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button></div></div>{collapsed?<div className="collapsedSourceRail"><FileText/><Music2/><ImageIcon/><Link2/></div>:<><div className="sourceTabs"><b>전체</b><span>문서</span><span>오디오</span><span>웹</span><span>이미지</span></div><div className="sourceSearch"><Search/>자료 검색...</div><div className="sourceItems">{sourceItems.map(([k,t,m])=><div className="sourceItem" key={t} draggable onDragStart={e=>{e.dataTransfer.effectAllowed="copy";e.dataTransfer.setData("application/nodearticle-source",JSON.stringify({kind:k,title:t,meta:m}))}}><span className={"srcIcon "+k}>{iconFor(k)}</span><span><b>{t}</b><small>{m}</small></span></div>)}</div><div className="addSource"><Plus/> 더 많은 자료 추가<div className="sourceButtons"><button>◢</button><button>▶</button><button>🔗</button></div><small>또는 파일을 드래그하세요</small></div></>}</aside>}
 function Properties({node,onChange,onRoleChange}){const roles=node.data.role==='TITLE'?['TITLE']:editableRoles;return <aside className="properties"><div className="propHead"><b>Node Properties</b><X/></div><div className="propTabs"><b>기본 정보</b><span>연결된 자료</span></div><label>노드 타입</label><div className="selectBox nodeTypeSelect"><i style={{background:colors[node.data.role]}}/><select value={node.data.role} disabled={node.data.role==='TITLE'} onChange={e=>onRoleChange(e.target.value)}>{roles.map(role=><option key={role} value={role}>{role}</option>)}</select><span>⌄</span></div><label>노드 요약명<small>(편집용, 기사에 표시되지 않음)</small></label><input value={node.data.summary} onChange={e=>onChange('summary',e.target.value)}/><label>본문 내용<small>(실제 기사에 포함되는 텍스트)</small></label><textarea value={node.data.body} onChange={e=>onChange('body',e.target.value)}/><div className="linkedHead"><b>연결된 근거 자료 (4)</b><button>+ 추가</button></div><div className="linkedList"><div>🗺️ 노선 지도 <X/></div><div>📕 국토부 정책보고서 <X/></div><div>📘 운영 계획안 <X/></div><div>🎵 관계자 인터뷰 <X/></div></div><label>노드 색상</label><div className="colorDots">{Object.values(colors).slice(1).map(c=><i key={c} style={{background:c}}/>)}</div><div className="propActions"><button>↑　위로 이동</button><button>↓　아래로 이동</button><button>▣　복제</button><button className="danger"><Trash2/> 노드 삭제</button></div></aside>}
 function Graph({articles,setArticles,setSelected,scale=1}){
  const ordered=useMemo(()=>[...articles].sort((a,b)=>a.position.y-b.position.y),[articles])
  const slots=[40,200,430,670,920,1160,1390]
  const ghostRef=useRef(null),flowRef=useRef(null),insertRef=useRef(0),dragIdRef=useRef(null),dragStartRef=useRef(null)
  const [draggingId,setDraggingId]=useState(null)
+ const [demoEvidence,setDemoEvidence]=useState(evidence)
+ const [sourceDrag,setSourceDrag]=useState(null)
+ const [sourceTarget,setSourceTarget]=useState(null)
+ const [demoToast,setDemoToast]=useState('')
 
- const evNodes=useMemo(()=>evidence.map(e=>{
+ const evNodes=useMemo(()=>demoEvidence.map(e=>{
   const base=baseArticle.find(n=>n.id===e.target)?.position.y||e.position.y
   const target=articles.find(n=>n.id===e.target)?.position.y||base
   return {...e,draggable:false,position:{...e.position,y:target+(e.position.y-base)}}
- }),[articles])
+ }),[articles,demoEvidence])
 
  const staticNodes=useMemo(()=>[
   ...ordered.map((n,i)=>({...n,draggable:n.data.role!=='TITLE',data:{...n.data,num:String(i+1).padStart(2,'0')}})),
@@ -75,7 +79,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   const maxX=Math.max(...source.map(n=>n.position.x+(n.type==='article'?260:132)))
   const minY=Math.min(...source.map(n=>n.position.y))
   const maxY=Math.max(...source.map(n=>n.position.y+(n.type==='article'?(n.data?.kind==='image'?210:150):72)))
-  const padX=240,padTop=180,padBottom=320
+  const padX=520,padTop=180,padBottom=320
   return [[minX-padX,minY-padTop],[maxX+padX,maxY+padBottom]]
  },[staticNodes])
 
@@ -83,14 +87,14 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   const main=ordered.slice(0,-1).map((n,i)=>({
    id:'m'+i,source:n.id,target:ordered[i+1].id,sourceHandle:'flow-out',targetHandle:'flow-in',type:'smoothstep',className:'mainEdge'
   }))
-  const refs=evidence.map((e,i)=>({
+  const refs=demoEvidence.map((e,i)=>({
    id:'r'+i,source:e.side==='left'?e.id:e.target,target:e.side==='left'?e.target:e.id,
    sourceHandle:e.side==='left'?'ev-out':'ref-right',targetHandle:e.side==='left'?'ref-left':'ev-in',
    type:'smoothstep',className:'refEdge',
    label:e.target==='lead'?'근거':e.target==='fact'?(i%2?'참고':'근거'):e.target==='quote'?'근거':e.target==='context'?'참고':'근거'
   }))
   return [...main,...refs]
- },[ordered])
+ },[ordered,demoEvidence])
 
  const dragEdges=useMemo(()=>{
   if(!draggingId)return normalEdges
@@ -149,7 +153,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
   })
 
   const evidencePreview=evNodes.map(ev=>{
-   const meta=evidence.find(e=>e.id===ev.id)
+   const meta=demoEvidence.find(e=>e.id===ev.id)
    if(meta?.target===dragId)return {...ev,hidden:true}
    const articleNow=ordered.find(n=>n.id===meta?.target)
    const targetY=desiredY[meta?.target]
@@ -169,6 +173,40 @@ function Graph({articles,setArticles,setSelected,scale=1}){
    g.style.transformOrigin='top left'
    g.style.display='block'
   }
+ }
+
+
+ const readSource=e=>{try{return JSON.parse(e.dataTransfer.getData('application/nodearticle-source')||'null')}catch{return null}}
+ const sourceOver=e=>{
+  const src=readSource(e);if(!src)return
+  e.preventDefault();e.dataTransfer.dropEffect='copy';setSourceDrag(src)
+  const el=e.target.closest('.react-flow__node')
+  const id=el?.dataset?.id
+  setSourceTarget(id&&articles.some(n=>n.id===id)?id:'canvas')
+ }
+ const sourceLeave=e=>{if(!e.currentTarget.contains(e.relatedTarget))setSourceTarget(null)}
+ const sourceDrop=e=>{
+  const src=readSource(e)||sourceDrag;if(!src)return
+  e.preventDefault()
+  const el=e.target.closest('.react-flow__node'),targetId=el?.dataset?.id
+  if(targetId&&articles.some(n=>n.id===targetId)){
+   const target=articles.find(n=>n.id===targetId)
+   const side=(target?.position.x||220)>260?'left':'right'
+   const baseY=target?.position.y||300
+   setDemoEvidence(list=>[...list,{id:'demo-e'+Date.now(),type:'evidence',position:{x:side==='left'?15:575,y:baseY+45},data:{icon:src.kind,title:src.title,meta:'방금 연결됨'},target:targetId,side}])
+   setDemoToast('“'+src.title+'”을 '+target.data.role+' 노드의 근거로 연결했습니다')
+  }else{
+   const stamp=Date.now(),lastY=Math.max(...articles.map(n=>n.position.y))
+   const generated=[
+    {id:'auto'+stamp+'a',type:'article',position:{x:220,y:lastY+230},data:{role:'FACT',summary:src.title+' 핵심 사실',body:'자료에서 확인된 핵심 사실과 수치를 바탕으로 자동 생성된 본문 초안입니다.'}},
+    {id:'auto'+stamp+'b',type:'article',position:{x:220,y:lastY+460},data:{role:'CONTEXT',summary:'관련 배경과 맥락',body:'자료의 앞뒤 맥락과 기존 보도를 종합해 독자가 이해하기 쉬운 배경 설명을 구성했습니다.'}},
+    {id:'auto'+stamp+'c',type:'article',position:{x:220,y:lastY+690},data:{role:'OUTLOOK',summary:'의미와 다음 확인점',body:'자료에서 이어지는 향후 일정과 추가 확인이 필요한 지점을 정리한 초안입니다.'}}
+   ]
+   setArticles(list=>[...list,...generated])
+   setDemoEvidence(list=>[...list,...generated.map((n,i)=>({id:'demo-g'+stamp+i,type:'evidence',position:{x:i%2?575:15,y:n.position.y+45},data:{icon:src.kind,title:src.title,meta:'자동 추출 근거'},target:n.id,side:i%2?'right':'left'}))])
+   setDemoToast('“'+src.title+'”에서 본문 컴포넌트 3개를 생성했습니다')
+  }
+  setSourceDrag(null);setSourceTarget(null);setTimeout(()=>setDemoToast(''),2400)
  }
 
  const start=(event,node)=>{
@@ -212,7 +250,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
 
  return <section className="graphPanel">
   <div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div>
-  <div className="flowCanvas"><div ref={ghostRef} className="slotGhost"/>
+  <div className={"flowCanvas"+(sourceDrag?" sourceDragging":"")} onDragOver={sourceOver} onDragLeave={sourceLeave} onDrop={sourceDrop}><div ref={ghostRef} className="slotGhost"/>{sourceDrag&&<div className={"sourceDropHint "+(sourceTarget==="canvas"?"canvasTarget":"")}>{sourceTarget==="canvas"?"빈 공간에 놓으면 본문 컴포넌트를 자동 생성합니다":"본문 노드에 놓으면 근거로 연결합니다"}</div>}{demoToast&&<div className="demoToast">{demoToast}</div>}
    <ReactFlow nodes={displayNodes} edges={dragEdges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i}
     onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop}
     defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable
@@ -224,7 +262,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
 }
 function LiveArticle({articles}){const o=[...articles].sort((a,b)=>a.position.y-b.position.y);return <section className="livePanel"><div className="liveHead"><b>Live Article</b><div><button>◉ 미리보기</button><button>⛶ 전체화면</button></div></div><article><h1>{o[0].data.summary}</h1><div className="deck">도심 교통의 새로운 전환점… 안전성과 시민 체감도가 관건</div><div className="author"><span className="avatar">●</span><b>김민수 기자</b><span>◷ 2024. 11. 26. 10:24</span></div>{o.slice(1).map(n=>n.data.kind==='image'?<figure key={n.id}><img src={BUS_IMG}/><figcaption>▣ {n.data.body}</figcaption></figure>:n.data.role==='QUOTE'?<blockquote key={n.id}><b>{n.data.summary}</b><p>{n.data.body}</p></blockquote>:<p key={n.id}>{n.data.body}</p>)}</article></section>}
 export default function App(){
- const shellRef=useRef(null);const [scale,setScale]=useState(1)
+ const shellRef=useRef(null);const [scale,setScale]=useState(1);const [mobileLandscape,setMobileLandscape]=useState(false);const [mobileSourcesOpen,setMobileSourcesOpen]=useState(false);const [mobilePropsOpen,setMobilePropsOpen]=useState(false)
  const [articles,setArticles]=useState(baseArticle);const [selected,setSelected]=useState('fact')
  const [widths,setWidths]=useState([17.5,42.5,22.5,17.5]);const [sourceCollapsed,setSourceCollapsed]=useState(false);const [savedSourceWidth,setSavedSourceWidth]=useState(17.5);const mins=[11,28,18,13]
  const current=articles.find(n=>n.id===selected)||articles[2]
@@ -238,12 +276,13 @@ export default function App(){
  }
  const reset=()=>{setSourceCollapsed(false);setWidths([17.5,42.5,22.5,17.5])}
  const toggleSources=()=>{if(sourceCollapsed){const restore=Math.max(11,savedSourceWidth);setWidths(w=>[restore,w[1]-(restore-w[0]),w[2],w[3]]);setSourceCollapsed(false)}else{const collapsed=4;setSavedSourceWidth(widths[0]);setWidths(w=>[collapsed,w[1]+(w[0]-collapsed),w[2],w[3]]);setSourceCollapsed(true)}}
- useEffect(()=>{const update=()=>{const vw=window.innerWidth,vh=window.innerHeight;const next=Math.min(1,vw/1575,vh/900);setScale(Math.max(.5,next))};update();window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update)},[])
+ useEffect(()=>{const update=()=>{const vw=window.innerWidth,vh=window.innerHeight;const landscape=vw<=950&&vw>vh;setMobileLandscape(landscape);const next=landscape?1:Math.min(1,vw/1575,vh/900);setScale(Math.max(.5,next));if(!landscape){setMobileSourcesOpen(false);setMobilePropsOpen(false)}};update();window.addEventListener('resize',update);return()=>window.removeEventListener('resize',update)},[])
  return <div className="viewportFit"><div className="fitStage" ref={shellRef} style={{zoom:scale,width:(100/scale)+"%",height:(100/scale)+"%"}}><div className="app"><header><div className="brand">NodeArticle <small>취재의 근거가 살아있는 글쓰기</small></div><div className="headerStory"><span>‹</span><b>서울시 자율주행 버스 시범운행 시작</b><small>◷ 저장됨 · 10:24</small></div><nav><button className="active">작성</button><button>자료</button><button>검증</button><button>히스토리</button><button className="export">내보내기⌄</button><i>J</i></nav></header>
- <main className="workspace">
-  <div className={"pane sourcePane"+(sourceCollapsed?" isCollapsed":"")} style={{width:widths[0]+'%'}}><Sources collapsed={sourceCollapsed} onToggle={toggleSources}/></div><div className={"paneResizer"+(sourceCollapsed?" locked":"")} onPointerDown={e=>!sourceCollapsed&&resize(0,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
+ <main className={"workspace"+(mobileLandscape?" mobileLandscape":"")}>
+  {mobileLandscape&&<div className="mobilePanelControls"><button onClick={()=>setMobileSourcesOpen(v=>!v)}>자료</button><button onClick={()=>setMobilePropsOpen(v=>!v)}>속성</button></div>}
+  <div className={"pane sourcePane"+(sourceCollapsed?" isCollapsed":"")+(mobileSourcesOpen?" mobileOpen":"")} style={{width:widths[0]+'%'}}><Sources collapsed={mobileLandscape?false:sourceCollapsed} onToggle={mobileLandscape?()=>setMobileSourcesOpen(false):toggleSources}/></div><div className={"paneResizer"+(sourceCollapsed?" locked":"")} onPointerDown={e=>!sourceCollapsed&&resize(0,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[1]+'%'}}><Graph articles={articles} setArticles={setArticles} setSelected={setSelected} scale={scale}/></div><div className="paneResizer" onPointerDown={e=>resize(1,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
   <div className="pane" style={{width:widths[2]+'%'}}><LiveArticle articles={articles}/></div><div className="paneResizer" onPointerDown={e=>resize(2,e)} onDoubleClick={reset} title="드래그해서 패널 너비 조절 · 더블클릭으로 초기화"/>
-  <div className="pane" style={{width:widths[3]+'%'}}><Properties node={current} onChange={change} onRoleChange={changeRole}/></div>
+  <div className={"pane propertiesPane"+(mobilePropsOpen?" mobileOpen":"")} style={{width:widths[3]+'%'}}><Properties node={current} onChange={change} onRoleChange={changeRole}/></div>
  </main></div></div></div>
 }
