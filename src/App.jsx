@@ -47,7 +47,7 @@ const editableRoles=['LEAD','FACT','IMAGE','QUOTE','CONTEXT','OUTLOOK']
 
 const sourceItems=[
 ['pdf','서울시 보도자료','PDF · 2.3MB'],['audio','자율주행 인터뷰_김정호.mp3','오디오 · 48:12'],['pdf','국토부 자율주행 정책보고서','PDF · 5.1MB'],['image','서울시 자율주행 시범운행.jpg','이미지 · 1.2MB'],['web','관련 기사 모음','웹페이지 · 12개'],['doc','업계 전문가 인터뷰','문서 · 32KB']]
-function Sources({collapsed,onToggle}){return <aside className={"sourcesPanel"+(collapsed?" collapsed":"")}><div className="sideHead">{!collapsed&&<b>Sources</b>}<div className="sourceHeadActions">{!collapsed&&<button><Plus/>추가</button>}<button className="collapseSource" onClick={onToggle} title={collapsed?"Sources 펼치기":"Sources 접기"}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button></div></div>{collapsed?<div className="collapsedSourceRail"><FileText/><Music2/><ImageIcon/><Link2/></div>:<><div className="sourceTabs"><b>전체</b><span>문서</span><span>오디오</span><span>웹</span><span>이미지</span></div><div className="sourceSearch"><Search/>자료 검색...</div><div className="sourceItems">{sourceItems.map(([k,t,m])=><div className="sourceItem" key={t} draggable onDragStart={e=>{e.dataTransfer.effectAllowed="copy";e.dataTransfer.setData("application/nodearticle-source",JSON.stringify({kind:k,title:t,meta:m}))}}><span className={"srcIcon "+k}>{iconFor(k)}</span><span><b>{t}</b><small>{m}</small></span></div>)}</div><div className="addSource"><Plus/> 더 많은 자료 추가<div className="sourceButtons"><button>◢</button><button>▶</button><button>🔗</button></div><small>또는 파일을 드래그하세요</small></div></>}</aside>}
+function Sources({collapsed,onToggle}){return <aside className={"sourcesPanel"+(collapsed?" collapsed":"")}><div className="sideHead">{!collapsed&&<b>Sources</b>}<div className="sourceHeadActions">{!collapsed&&<button><Plus/>추가</button>}<button className="collapseSource" onClick={onToggle} title={collapsed?"Sources 펼치기":"Sources 접기"}>{collapsed?<ChevronRight/>:<ChevronLeft/>}</button></div></div>{collapsed?<div className="collapsedSourceRail"><FileText/><Music2/><ImageIcon/><Link2/></div>:<><div className="sourceTabs"><b>전체</b><span>문서</span><span>오디오</span><span>웹</span><span>이미지</span></div><div className="sourceSearch"><Search/>자료 검색...</div><div className="sourceItems">{sourceItems.map(([k,t,m])=><div className="sourceItem" key={t} draggable onDragStart={e=>{e.dataTransfer.effectAllowed="copy";(()=>{const payload=JSON.stringify({kind:k,title:t,meta:m});e.dataTransfer.setData("application/nodearticle-source",payload);e.dataTransfer.setData("text/plain",payload)})()}}><span className={"srcIcon "+k}>{iconFor(k)}</span><span><b>{t}</b><small>{m}</small></span></div>)}</div><div className="addSource"><Plus/> 더 많은 자료 추가<div className="sourceButtons"><button>◢</button><button>▶</button><button>🔗</button></div><small>또는 파일을 드래그하세요</small></div></>}</aside>}
 function Properties({node,onChange,onRoleChange}){const roles=node.data.role==='TITLE'?['TITLE']:editableRoles;return <aside className="properties"><div className="propHead"><b>Node Properties</b><X/></div><div className="propTabs"><b>기본 정보</b><span>연결된 자료</span></div><label>노드 타입</label><div className="selectBox nodeTypeSelect"><i style={{background:colors[node.data.role]}}/><select value={node.data.role} disabled={node.data.role==='TITLE'} onChange={e=>onRoleChange(e.target.value)}>{roles.map(role=><option key={role} value={role}>{role}</option>)}</select><span>⌄</span></div><label>노드 요약명<small>(편집용, 기사에 표시되지 않음)</small></label><input value={node.data.summary} onChange={e=>onChange('summary',e.target.value)}/><label>본문 내용<small>(실제 기사에 포함되는 텍스트)</small></label><textarea value={node.data.body} onChange={e=>onChange('body',e.target.value)}/><div className="linkedHead"><b>연결된 근거 자료 (4)</b><button>+ 추가</button></div><div className="linkedList"><div>🗺️ 노선 지도 <X/></div><div>📕 국토부 정책보고서 <X/></div><div>📘 운영 계획안 <X/></div><div>🎵 관계자 인터뷰 <X/></div></div><label>노드 색상</label><div className="colorDots">{Object.values(colors).slice(1).map(c=><i key={c} style={{background:c}}/>)}</div><div className="propActions"><button>↑　위로 이동</button><button>↓　아래로 이동</button><button>▣　복제</button><button className="danger"><Trash2/> 노드 삭제</button></div></aside>}
 function Graph({articles,setArticles,setSelected,scale=1}){
  const ordered=useMemo(()=>[...articles].sort((a,b)=>a.position.y-b.position.y),[articles])
@@ -176,10 +176,12 @@ function Graph({articles,setArticles,setSelected,scale=1}){
  }
 
 
- const readSource=e=>{try{return JSON.parse(e.dataTransfer.getData('application/nodearticle-source')||'null')}catch{return null}}
+ const readSource=e=>{try{return JSON.parse(e.dataTransfer.getData('application/nodearticle-source')||e.dataTransfer.getData('text/plain')||'null')}catch{return null}}
  const sourceOver=e=>{
-  const src=readSource(e);if(!src)return
-  e.preventDefault();e.dataTransfer.dropEffect='copy';setSourceDrag(src)
+  e.preventDefault();e.dataTransfer.dropEffect='copy'
+  const src=readSource(e)||sourceDrag
+  if(!src)return
+  setSourceDrag(src)
   const el=e.target.closest('.react-flow__node')
   const id=el?.dataset?.id
   setSourceTarget(id&&articles.some(n=>n.id===id)?id:'canvas')
@@ -250,7 +252,7 @@ function Graph({articles,setArticles,setSelected,scale=1}){
 
  return <section className="graphPanel">
   <div className="graphHead"><b>Article Graph</b><div className="graphTools"><span className="dragHint">노드 드래그 → 순서 변경</span><button>↖</button><button>☝</button><button>100%</button><button>⌕</button><button>⛶</button><button className="addNode">노드 추가</button><button>⛶</button></div></div>
-  <div className={"flowCanvas"+(sourceDrag?" sourceDragging":"")} onDragOver={sourceOver} onDragLeave={sourceLeave} onDrop={sourceDrop}><div ref={ghostRef} className="slotGhost"/>{sourceDrag&&<div className={"sourceDropHint "+(sourceTarget==="canvas"?"canvasTarget":"")}>{sourceTarget==="canvas"?"빈 공간에 놓으면 본문 컴포넌트를 자동 생성합니다":"본문 노드에 놓으면 근거로 연결합니다"}</div>}{demoToast&&<div className="demoToast">{demoToast}</div>}
+  <div className={"flowCanvas"+(sourceDrag?" sourceDragging":"")} onDragEnter={sourceOver} onDragOver={sourceOver} onDragLeave={sourceLeave} onDrop={sourceDrop}><div ref={ghostRef} className="slotGhost"/>{sourceDrag&&<div className={"sourceDropHint "+(sourceTarget==="canvas"?"canvasTarget":"")}>{sourceTarget==="canvas"?"빈 공간에 놓으면 본문 컴포넌트를 자동 생성합니다":"본문 노드에 놓으면 근거로 연결합니다"}</div>}{demoToast&&<div className="demoToast">{demoToast}</div>}
    <ReactFlow nodes={displayNodes} edges={dragEdges} onNodesChange={onNodesChange} nodeTypes={nodeTypes} onInit={i=>flowRef.current=i}
     onNodeClick={(_,n)=>n.type==='article'&&setSelected(n.id)} onNodeDragStart={start} onNodeDrag={move} onNodeDragStop={drop}
     defaultViewport={{x:92,y:-14,zoom:.74}} minZoom={.35} maxZoom={1.6} panOnDrag nodesDraggable
